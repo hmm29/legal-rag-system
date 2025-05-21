@@ -35,6 +35,8 @@ The system consists of four main layers:
 3. **Performance Layer**: Caching, rate limiting, batch processing
 4. **Monitoring Layer**: Metrics collection and visualization
 
+For a detailed architecture diagram and component breakdown, see [Architecture Documentation](docs/architecture.md).
+
 ## Getting Started
 
 ### Prerequisites
@@ -76,7 +78,14 @@ uvicorn src.api.server:app --reload
 ## Docker Deployment
 
 ```bash
+# Build and run with Docker Compose
 docker-compose up --build -d
+
+# Scale for multiple instances if needed
+docker-compose up --scale rag-api=3 -d
+
+# Access API at http://localhost:8000
+# API documentation at http://localhost:8000/docs
 ```
 
 ## Usage Examples
@@ -108,6 +117,19 @@ batch_response = requests.post(
 - **Maximum throughput**: 120 queries per second
 
 For detailed metrics, see [Performance Documentation](docs/performance_metrics.md).
+
+## Cost Analysis
+
+The Legal RAG System is designed for cost-effectiveness at different scales:
+
+- **Development/POC**: $40-90/month
+- **Small Production**: $260-660/month
+- **Medium Production**: $980-3,140/month
+- **Enterprise Scale**: $6,300+/month
+
+Our cost optimization strategies (caching, batching, token optimization) can reduce costs by 30-50%.
+
+For a comprehensive breakdown of costs and ROI analysis, see [Cost Analysis Documentation](docs/cost_analysis.md).
 
 ## License
 
