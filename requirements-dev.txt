@@ -1,0 +1,6 @@
+# Enough to run the test suite. No API keys or model downloads needed.
+fastapi>=0.110
+pydantic>=2.6
+numpy>=1.26
+httpx>=0.27
+pytest>=8.0

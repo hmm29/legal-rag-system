@@ -1,0 +1,13 @@
+Habeas corpus: challenging unlawful detention
+
+Habeas corpus is a court order that requires the government to bring a detained person before a judge and justify the detention. The phrase is Latin for "you shall have the body". It is one of the oldest protections against unlawful imprisonment.
+
+The United States Constitution provides that the privilege of the writ shall not be suspended except when public safety requires it in cases of rebellion or invasion.
+
+A petition for habeas corpus does not ask whether the prisoner is guilty. It asks whether the detention is lawful. Typical grounds include a conviction obtained in violation of the constitutional right to counsel, a sentence longer than the law allows, or detention without any charge.
+
+A person held under a state conviction must usually exhaust the remedies available in state court before a federal court will hear a habeas petition. Federal law also sets a one-year filing deadline in most cases and limits second or successive petitions.
+
+If the court finds the detention unlawful it can order the prisoner released, order a new trial, or order a new sentencing hearing.
+
+This summary is a simplified teaching example written for this repository. It is not legal advice.

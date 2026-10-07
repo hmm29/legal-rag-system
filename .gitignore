@@ -2,8 +2,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 venv/
+.venv/
 .env
-.venv
 cache/
+.pytest_cache/
 .DS_Store
-.langchain.db

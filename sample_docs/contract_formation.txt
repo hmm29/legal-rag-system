@@ -1,0 +1,15 @@
+Contract formation: the basic elements
+
+A contract is an agreement that a court will enforce. Under the common law followed in most United States jurisdictions, a valid contract generally requires four things: an offer, acceptance of that offer, consideration, and mutual assent.
+
+An offer is a clear statement of the terms on which one party is willing to be bound. An advertisement or a price quotation is usually treated as an invitation to deal, not an offer, unless its terms are specific enough that nothing is left to negotiate.
+
+Acceptance is an unqualified agreement to the terms of the offer. A reply that changes the terms is a counteroffer, which rejects the original offer and puts a new one on the table.
+
+Consideration is what each side gives up in the exchange: a payment, a service, a promise to act, or a promise not to act. A promise to make a gift is generally not enforceable because the other side gives nothing in return.
+
+Mutual assent, sometimes called a meeting of the minds, means both parties intended to enter the same bargain. Courts judge intent by what a reasonable person would understand from the parties' words and conduct, not by their private thoughts.
+
+Some contracts must also be in writing to be enforced. The statute of frauds covers, among others, contracts for the sale of land and agreements that cannot be performed within one year.
+
+This summary is a simplified teaching example written for this repository. It is not legal advice.

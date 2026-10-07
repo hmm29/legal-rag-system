@@ -1,120 +1,55 @@
-# performance_metrics.py
-import time
-import json
-import matplotlib.pyplot as plt
+"""Latency and throughput tracking for the running service."""
+import threading
+
 import numpy as np
-from sklearn.metrics import precision_recall_fscore_support
+
 
 class PerformanceTracker:
     def __init__(self):
-        self.latencies = []
-        self.throughput_data = []
-        self.accuracy_data = []
-    
-    def measure_latency(self, func, *args, **kwargs):
-        """Measure latency of a function call"""
-        start_time = time.time()
-        result = func(*args, **kwargs)
-        end_time = time.time()
-        latency = end_time - start_time
-        self.latencies.append(latency)
-        return result, latency
-    
-    def measure_throughput(self, batch_size, duration):
-        """Record throughput data"""
-        throughput = batch_size / duration
-        self.throughput_data.append({
-            'batch_size': batch_size,
-            'duration': duration,
-            'throughput': throughput
-        })
+        self._lock = threading.Lock()
+        self._latencies_ms: list[float] = []
+        self._cache_hits = 0
+        self._cache_misses = 0
+        self._batches: list[dict] = []
+
+    def record_latency(self, latency_ms: float, cached: bool = False) -> None:
+        with self._lock:
+            self._latencies_ms.append(float(latency_ms))
+            if cached:
+                self._cache_hits += 1
+            else:
+                self._cache_misses += 1
+
+    def record_batch(self, size: int, duration_seconds: float) -> float:
+        throughput = size / duration_seconds if duration_seconds > 0 else 0.0
+        with self._lock:
+            self._batches.append(
+                {"size": size, "duration_seconds": duration_seconds, "queries_per_second": throughput}
+            )
         return throughput
-    
-    def measure_accuracy(self, expected, actual):
-        """Measure accuracy metrics"""
-        # This is simplified - in a real scenario, you'd use more sophisticated evaluation
-        score = 1 if expected.lower() in actual.lower() else 0
-        self.accuracy_data.append({
-            'expected': expected,
-            'actual': actual,
-            'score': score
-        })
-        return score
-    
-    def generate_report(self, output_file="performance_report.json"):
-        """Generate performance report"""
-        report = {
-            'latency': {
-                'mean': np.mean(self.latencies),
-                'median': np.median(self.latencies),
-                'p95': np.percentile(self.latencies, 95),
-                'p99': np.percentile(self.latencies, 99),
-                'min': min(self.latencies),
-                'max': max(self.latencies)
-            },
-            'throughput': {
-                'data': self.throughput_data,
-                'average': np.mean([d['throughput'] for d in self.throughput_data]) if self.throughput_data else 0
-            },
-            'accuracy': {
-                'data': self.accuracy_data,
-                'average': np.mean([d['score'] for d in self.accuracy_data]) if self.accuracy_data else 0
+
+    def report(self) -> dict:
+        with self._lock:
+            latencies = list(self._latencies_ms)
+            batches = list(self._batches)
+            hits, misses = self._cache_hits, self._cache_misses
+        if latencies:
+            latency = {
+                "count": len(latencies),
+                "mean_ms": round(float(np.mean(latencies)), 1),
+                "median_ms": round(float(np.median(latencies)), 1),
+                "p95_ms": round(float(np.percentile(latencies, 95)), 1),
+                "p99_ms": round(float(np.percentile(latencies, 99)), 1),
+                "max_ms": round(float(max(latencies)), 1),
             }
+        else:
+            latency = {"count": 0}
+        throughputs = [b["queries_per_second"] for b in batches]
+        return {
+            "latency": latency,
+            "cache": {"hits": hits, "misses": misses},
+            "batches": {
+                "count": len(batches),
+                "mean_queries_per_second": round(float(np.mean(throughputs)), 1) if throughputs else 0.0,
+            },
         }
-        
-        with open(output_file, 'w') as f:
-            json.dump(report, f, indent=2)
-        
-        return report
-    
-    def visualize_performance(self):
-        """Generate performance visualizations"""
-        # Latency histogram
-        plt.figure(figsize=(12, 4))
-        plt.subplot(131)
-        plt.hist(self.latencies, bins=20)
-        plt.title('Latency Distribution')
-        plt.xlabel('Latency (s)')
-        plt.ylabel('Frequency')
-        
-        # Throughput over time
-        plt.subplot(132)
-        if self.throughput_data:
-            throughputs = [d['throughput'] for d in self.throughput_data]
-            plt.plot(throughputs)
-            plt.title('Throughput Over Time')
-            plt.xlabel('Batch Number')
-            plt.ylabel('Queries per Second')
-        
-        # Accuracy
-        plt.subplot(133)
-        if self.accuracy_data:
-            scores = [d['score'] for d in self.accuracy_data]
-            plt.bar(['Accuracy'], [np.mean(scores)])
-            plt.title('Accuracy')
-            plt.ylim(0, 1)
-        
-        plt.tight_layout()
-        plt.savefig('performance_metrics.png')
-        plt.close()
-
-# Initialize performance tracker
-tracker = PerformanceTracker()
-
-# Example usage
-question = "What constitutes copyright infringement?"
-result, latency = tracker.measure_latency(cached_query, question)
-print(f"Query latency: {latency:.2f}s")
-
-# Simulate throughput measurement
-questions = ["What are the elements of a valid contract?"] * 10
-start_time = time.time()
-for q in questions:
-    _ = cached_query(q)
-end_time = time.time()
-throughput = tracker.measure_throughput(len(questions), end_time - start_time)
-print(f"Throughput: {throughput:.2f} queries per second")
-
-# Generate report
-report = tracker.generate_report()
-tracker.visualize_performance()

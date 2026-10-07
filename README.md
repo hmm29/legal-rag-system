@@ -1,137 +1,135 @@
 # Legal RAG System
 
-A production-quality Retrieval-Augmented Generation (RAG) system designed to help lawyers quickly find relevant case precedents and legal information across millions of documents. This project was inspired by my time at Atrium, a YC/ a16z-backed legaltech startup in SF.
+[![tests](https://github.com/hmm29/legal-rag-system/actions/workflows/ci.yml/badge.svg)](https://github.com/hmm29/legal-rag-system/actions/workflows/ci.yml)
 
-## Business Value
+A small retrieval-augmented generation (RAG) service for legal research questions. You ask a question over HTTP; it retrieves the most relevant passages from a Pinecone index, asks an OpenAI model to answer using only those passages, and returns the answer with its sources.
 
-This system delivers:
-- 75% reduction in legal research time
-- 40% improvement in answer accuracy versus keyword search
-- Support for 500+ concurrent users
-- Sub-2-second response times
+I built it after working at Atrium, a legal-tech startup in San Francisco, where finding the right precedent quickly was most of the job. It is a reference implementation and a learning project, not a deployed product.
 
-## Features
+## What it does
 
-- **Enterprise-Grade Performance**
-  - Batch processing for high throughput
-  - Request rate limiting
-  - Multi-level caching strategy
-  
-- **Comprehensive Metrics**
-  - Real-time latency tracking
-  - Throughput measurement
-  - Accuracy evaluation against ground truth
-  
-- **Production-Ready Architecture**
-  - FastAPI backend
-  - Docker containerization
-  - Pinecone vector database integration
+- **Ingest:** loads `.txt` documents, splits them into overlapping chunks on paragraph and sentence boundaries, embeds them locally with `all-MiniLM-L6-v2`, and upserts them into a Pinecone serverless index.
+- **Answer:** embeds the question, retrieves the top passages, and prompts the model to answer from those passages only. If nothing is retrieved, it says so without calling the model.
+- **Serve:** a FastAPI app with `/query`, `/batch_query`, `/metrics` and `/health`.
+- **Control cost:** answers are cached on disk by question, and a sliding-window rate limiter caps uncached calls per second (default 20). Cache hits skip the limiter, Pinecone and OpenAI entirely.
+- **Measure:** per-request latency (mean, median, p95, p99), cache hits and misses, and batch throughput, exposed at `/metrics`.
 
-## System Architecture
+## Layout
 
-The system consists of four main layers:
-1. **Data Processing Layer**: Document loading, chunking, embedding
-2. **Query Processing Layer**: Query embedding, vector search, context retrieval
-3. **Performance Layer**: Caching, rate limiting, batch processing
-4. **Monitoring Layer**: Metrics collection and visualization
-
-For a detailed architecture diagram and component breakdown, see [Architecture Documentation](docs/architecture.md).
-
-## Getting Started
-
-### Prerequisites
-
-- Python 3.9+
-- Pinecone API key
-- OpenAI API key
-
-### Installation
-
-```bash
-# Clone repository
-git clone https://github.com/yourusername/legal-rag-system.git
-cd legal-rag-system
-
-# Set up virtual environment
-python -m venv venv
-source venv/bin/activate # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Set environment variables
-export PINECONE_API_KEY="your-api-key"
-export PINECONE_ENV="your-environment"
-export OPENAI_API_KEY="your-api-key"
+```
+src/
+  config.py                  settings from environment variables
+  data/data_preparation.py   load and chunk documents
+  vector_store/              local embedder and Pinecone store
+  rag/pipeline.py            retrieve, build prompt, answer
+  optimization/              disk cache, rate limiter, batch runner
+  metrics/                   latency and throughput tracker
+  service.py                 pipeline + cache + limiter + metrics
+  api/                       FastAPI app and request handlers
+scripts/
+  ingest.py                  index a folder of documents
+  benchmark.py               measure latency and throughput
+sample_docs/                 four short teaching summaries to try it with
+tests/                       unit and HTTP tests, no API keys needed
 ```
 
-### Running the Application
+More detail in [docs/architecture.md](docs/architecture.md).
+
+## Run it
+
+You need Python 3.10 or newer, a Pinecone API key and an OpenAI API key.
 
 ```bash
-# Prepare data
-python -m src.data.data_preparation
+git clone https://github.com/hmm29/legal-rag-system.git
+cd legal-rag-system
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
 
-# Start API server
+cp .env.example .env        # then add your two keys
+
+python -m scripts.ingest --docs sample_docs
 uvicorn src.api.server:app --reload
 ```
 
-## Docker Deployment
+Or with Docker, after creating `.env`:
 
 ```bash
-# Build and run with Docker Compose
-docker-compose up --build -d
-
-# Scale for multiple instances if needed
-docker-compose up --scale rag-api=3 -d
-
-# Access API at http://localhost:8000
-# API documentation at http://localhost:8000/docs
+docker compose up --build
 ```
 
-## Usage Examples
-```python
-import requests
+## API
 
-# Single query
-response = requests.post(
-    "http://localhost:8000/query",
-    json={"question": "What constitutes copyright infringement?"}
-)
+Interactive docs are at `http://localhost:8000/docs` once the server is running.
 
-# Batch query
-batch_response = requests.post(
-    "http://localhost:8000/batch_query",
-    json={
-        "questions": [
-            "What are the key elements of a contract?",
-            "Explain the concept of reasonable doubt."
-        ]
-    }
-)
+### `POST /query`
+
+```bash
+curl -s localhost:8000/query \
+  -H 'Content-Type: application/json' \
+  -d '{"question": "What are the elements of a valid contract?"}'
 ```
 
-## Performance Benchmarks
+```json
+{
+  "answer": "...",
+  "sources": [
+    {"text": "...", "source": "contract_formation.txt", "score": 0.71}
+  ],
+  "cached": false,
+  "latency_ms": 0.0
+}
+```
 
-- **Average latency**: 245ms
-- **P95 latency**: 450ms
-- **Maximum throughput**: 120 queries per second
+The values above show the shape of the response, not real output.
 
-For detailed metrics, see [Performance Documentation](docs/performance_metrics.md).
+### `POST /batch_query`
 
-## Cost Analysis
+Takes 1 to 50 questions and answers them concurrently, within the rate limit.
 
-The Legal RAG System is designed for cost-effectiveness at different scales:
+```bash
+curl -s localhost:8000/batch_query \
+  -H 'Content-Type: application/json' \
+  -d '{"questions": ["What is habeas corpus?", "Who bears the burden of proof in a civil case?"]}'
+```
 
-- **Development/POC**: $40-90/month
-- **Small Production**: $260-660/month
-- **Medium Production**: $980-3,140/month
-- **Enterprise Scale**: $6,300+/month
+Returns `results` (one `/query` response per question, in order), `duration_seconds` and `queries_per_second`.
 
-Our cost optimization strategies (caching, batching, token optimization) can reduce costs by 30-50%.
+### `GET /metrics`
 
-For a comprehensive breakdown of costs and ROI analysis, see [Cost Analysis Documentation](docs/cost_analysis.md).
+Latency statistics, cache hits and misses, and batch throughput since the server started.
+
+### `GET /health`
+
+Returns `{"status": "ok"}`.
+
+## Tests
+
+```bash
+pip install -r requirements-dev.txt
+pytest -q
+```
+
+The tests replace Pinecone, OpenAI and the embedding model with in-memory fakes, so they run offline in a few seconds. They cover chunking, prompt construction, the cache, the rate limiter, batching, metrics, the service layer and the HTTP endpoints. They do not test retrieval quality or the live integrations.
+
+## Benchmark
+
+No performance figures are published here yet. [docs/performance_metrics.md](docs/performance_metrics.md) is generated by:
+
+```bash
+python -m scripts.benchmark --questions benchmarks/questions.txt
+```
+
+The script runs the 20 questions three ways (uncached one at a time, uncached as one concurrent batch, and cached) against your live index and writes the results with the machine, corpus size, models and method that produced them. Uncached latency is mostly the chat model's response time, and uncached throughput cannot exceed the configured rate limit.
+
+## Limitations
+
+- The sample corpus is four short summaries written for this repo. It is enough to see the system work, not to judge answer quality.
+- There is no retrieval or answer-quality evaluation yet.
+- The cache is exact-match on the normalized question and never expires; clear the `cache/` folder after re-ingesting.
+- The rate limiter and metrics are per process. Running several workers needs a shared store.
+- No authentication. Do not expose it to the internet as is.
+- Nothing here is legal advice.
 
 ## License
 
 MIT
-
