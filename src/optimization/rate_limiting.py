@@ -1,35 +1,37 @@
-# rate_limiting.py
-import time
+"""Sliding-window rate limiter for calls to the paid upstream APIs."""
 import threading
-from queue import Queue
+import time
+from collections import deque
+
 
 class RateLimiter:
-    def __init__(self, max_calls_per_second=10):
+    """Allow at most `max_calls_per_second` calls in any one-second window.
+
+    `wait()` blocks until the caller may proceed. It is safe to call from
+    several threads. `clock` and `sleep` can be replaced in tests.
+    """
+
+    def __init__(self, max_calls_per_second: int = 20, clock=time.monotonic, sleep=time.sleep):
+        if max_calls_per_second <= 0:
+            raise ValueError("max_calls_per_second must be positive")
         self.max_calls_per_second = max_calls_per_second
-        self.call_timestamps = []
-        self.lock = threading.Lock()
-    
-    def wait_if_needed(self):
-        """Wait if we've exceeded the rate limit"""
-        with self.lock:
-            now = time.time()
-            
-            # Remove timestamps older than 1 second
-            self.call_timestamps = [ts for ts in self.call_timestamps if now - ts < 1.0]
-            
-            # If we've reached the limit, wait
-            if len(self.call_timestamps) >= self.max_calls_per_second:
-                sleep_time = 1.0 - (now - self.call_timestamps[0])
-                if sleep_time > 0:
-                    time.sleep(sleep_time)
-                    now = time.time()  # Update the current time
-            
-            # Add the current timestamp
-            self.call_timestamps.append(now)
+        self._clock = clock
+        self._sleep = sleep
+        self._calls: deque[float] = deque()
+        self._lock = threading.Lock()
 
-# Initialize rate limiter
-rate_limiter = RateLimiter(max_calls_per_second=20)
+    def _drop_expired(self, now: float) -> None:
+        while self._calls and now - self._calls[0] >= 1.0:
+            self._calls.popleft()
 
-def query_with_rate_limit(question):
-    rate_limiter.wait_if_needed()
-    return qa(question)
+    def wait(self) -> None:
+        with self._lock:
+            now = self._clock()
+            self._drop_expired(now)
+            if len(self._calls) >= self.max_calls_per_second:
+                delay = 1.0 - (now - self._calls[0])
+                if delay > 0:
+                    self._sleep(delay)
+                now = self._clock()
+                self._drop_expired(now)
+            self._calls.append(now)

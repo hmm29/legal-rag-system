@@ -1,0 +1,15 @@
+Copyright infringement: what a plaintiff must show
+
+Copyright protects original works of authorship that are fixed in a tangible form, such as books, music, films, photographs and software. It protects the particular expression of an idea, not the idea itself.
+
+To prove infringement in the United States, a plaintiff generally has to show two things. First, that they own a valid copyright in the work. Second, that the defendant copied protected elements of that work.
+
+Copying can be shown directly, for example by an admission, or indirectly. Indirect proof usually combines evidence that the defendant had access to the work with evidence that the two works are substantially similar. If the works are strikingly similar, a court may infer access.
+
+Not all copying is infringement. Facts, ideas, common phrases and standard plot elements are not protected, so similarity in those elements does not count.
+
+Fair use is the most common defense. Courts weigh four factors: the purpose and character of the use, including whether it is commercial or transformative; the nature of the copyrighted work; the amount and substantiality of the portion used; and the effect of the use on the market for the original.
+
+Remedies can include an injunction, the owner's actual damages and the infringer's profits, or statutory damages where the work was registered in time.
+
+This summary is a simplified teaching example written for this repository. It is not legal advice.

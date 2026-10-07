@@ -1,15 +1,10 @@
-# docker-compose.yml
-version: '3'
-
 services:
   rag-api:
     build: .
     ports:
       - "8000:8000"
-    environment:
-      - PINECONE_API_KEY=${PINECONE_API_KEY}
-      - PINECONE_ENV=${PINECONE_ENV}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    env_file:
+      - .env
     volumes:
       - ./cache:/app/cache
     restart: unless-stopped

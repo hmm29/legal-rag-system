@@ -1,112 +1,65 @@
-# Legal RAG System Architecture
+# Architecture
 
-## System Overview
+This document describes what the code does today.
 
-The Legal RAG System employs a layered architecture that separates concerns and enables high performance, scalability, and maintainability. The system is designed to process millions of legal documents, create semantic vector representations, and enable efficient retrieval for legal research queries.
-
-## Architecture Diagram
+## Request path
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      Client Applications                     │
-└───────────────────────────────┬─────────────────────────────┘
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      FastAPI REST Service                    │
-└───────────┬───────────────────┬──────────────────┬──────────┘
-            │                   │                  │
-┌───────────▼─────────┐ ┌───────▼───────┐ ┌───────▼───────────┐
-│ Query Processing    │ │ Performance   │ │ Metrics &         │
-│ Layer              │ │ Layer         │ │ Monitoring         │
-└───────────┬─────────┘ └───────┬───────┘ └───────────────────┘
-            │                   │
-            │                   │
-┌───────────▼─────────┐ ┌───────▼───────┐
-│ Data Processing     │ │ Vector        │
-│ Layer              │ │ Database      │
-└─────────────────────┘ └───────────────┘
+client
+  │  POST /query
+  ▼
+src/api/server.py        FastAPI routes, validation, error mapping
+  ▼
+src/api/handlers.py      request and response models, input cleaning
+  ▼
+src/service.py           RagService
+  ├─ ResultCache         hit: return the stored answer
+  ├─ RateLimiter         miss: wait for a slot
+  ├─ RagPipeline         miss: retrieve and answer
+  │    ├─ SentenceTransformerEmbedder   embed the question locally
+  │    ├─ PineconeStore                 top-k passages by cosine similarity
+  │    └─ OpenAIChat                    answer from the passages only
+  └─ PerformanceTracker  record latency and cache hit or miss
 ```
 
-## Layer Details
+## Ingestion path
 
-### 1. Data Processing Layer
+```
+scripts/ingest.py
+  load_documents → chunk_documents → embed → PineconeStore.upsert
+```
 
-The Data Processing Layer handles the ingestion, preparation, and embedding of legal documents.
+Documents are plain `.txt` files. Chunks are 1,000 characters with 200 characters of overlap by default, cut at a paragraph or sentence boundary when one is close. Each chunk is stored with its text and source file name as metadata, under the id `source#index`.
 
-**Components:**
+## Components
 
-- **Document Loading**: Imports documents from various sources (PDF, DOCX, text) and standardizes their format
-- **Text Splitting**: Segments documents into semantically meaningful chunks with appropriate sizing
-- **Embedding Generation**: Converts text chunks into dense vector representations using OpenAI's embedding models
-- **Vector Database Indexing**: Stores vectors in Pinecone for efficient similarity search
+| Component | File | Notes |
+|---|---|---|
+| Settings | `src/config.py` | Read once from environment variables or `.env`. Fails early with a clear message if a key is missing. |
+| Chunking | `src/data/data_preparation.py` | Pure Python, no framework. |
+| Embeddings | `src/vector_store/pinecone_store.py` | `all-MiniLM-L6-v2` (384 dimensions) through sentence-transformers, run locally. |
+| Vector store | `src/vector_store/pinecone_store.py` | Pinecone serverless index, cosine metric. |
+| Pipeline | `src/rag/pipeline.py` | Builds a numbered-passage prompt and instructs the model to answer only from it. Returns without a model call when nothing is retrieved. |
+| Cache | `src/optimization/caching.py` | One JSON file per question, keyed by a hash of the normalized text. No expiry. |
+| Rate limiter | `src/optimization/rate_limiting.py` | Sliding one-second window, thread-safe, default 20 calls per second. Applies to cache misses only. |
+| Batching | `src/optimization/batch_processing.py` | Thread pool, results returned in input order. |
+| Metrics | `src/metrics/performance_tracker.py` | In-memory latency samples, cache counters and batch throughput. |
 
-**Data Flow:**
-1. Raw documents → Document Loading
-2. Loaded documents → Text Splitting
-3. Text chunks → Embedding Generation
-4. Vector embeddings → Vector Database Indexing
+## Design choices
 
-### 2. Query Processing Layer
+- **Direct SDK calls instead of an orchestration framework.** The pipeline is about 70 lines, and each step is visible and replaceable.
+- **Dependencies passed in.** `RagPipeline` and `RagService` take their embedder, store, model, cache and limiter as arguments, so tests swap in fakes and run with no network or keys.
+- **Handlers separate from FastAPI.** Endpoint logic is plain functions, tested on their own; `server.py` only wires routes.
+- **Lazy construction.** The service is built on the first request, so importing the app needs no credentials.
+- **Local embeddings.** Embedding costs nothing per query and keeps one fewer network call on the request path. The trade-off is a larger image and a slower cold start.
 
-The Query Processing Layer manages user queries and retrieves relevant context for answering legal questions.
+## Deployment
 
-**Components:**
+A `Dockerfile` and `docker-compose.yml` run a single container. There is no Kubernetes configuration, autoscaling, authentication or shared cache; a multi-instance deployment would need the cache, rate limiter and metrics moved to a shared store.
 
-- **Query Embedding**: Converts user questions into vector representations
-- **Vector Similarity Search**: Finds most similar document chunks to the query
-- **Context Retrieval**: Extracts and prepares relevant content for the LLM
-- **LLM Generation**: Uses retrieved context to generate accurate answers to legal questions
+## Not built yet
 
-**Data Flow:**
-1. User query → Query Embedding
-2. Query embedding → Vector Similarity Search
-3. Retrieved vectors → Context Retrieval
-4. Retrieved context + Original query → LLM Generation
-5. LLM response → User
-
-### 3. Performance Optimization Layer
-
-The Performance Layer ensures the system can handle high traffic loads efficiently.
-
-**Components:**
-
-- **Caching Mechanism**: Multi-level caching strategy for query results and embeddings
-- **Rate Limiting**: Prevents API abuse and ensures fair resource distribution
-- **Batch Processing**: Groups similar operations for more efficient processing
-
-**Strategies:**
-1. Query result caching (TTL-based)
-2. Embedding caching (persistent storage)
-3. Token bucket rate limiting algorithm
-4. Dynamic batching for embedding generation
-
-### 4. Metrics and Monitoring Layer
-
-The Metrics Layer tracks system performance and accuracy metrics.
-
-**Components:**
-
-- **Latency Tracking**: Measures response time across system components
-- **Throughput Measurement**: Monitors system capacity and utilization
-- **Accuracy Evaluation**: Compares system responses to ground truth data
-
-**Metrics Collection:**
-1. Component-level latency measurements
-2. End-to-end query processing time
-3. Requests per second capacity
-4. Semantic similarity scores for accuracy
-
-## Deployment Architecture
-
-The system is containerized using Docker and can be scaled horizontally to handle increased load:
-
-- **Single Instance**: Suitable for development and small-scale usage
-- **Multi-Instance**: Docker Compose with multiple API instances for production load
-- **Kubernetes Deployment**: Available for enterprise-scale deployments with automatic scaling
-
-## Data Storage
-
-- **Vector Database**: Pinecone (cloud-hosted)
-- **Cache Storage**: Local filesystem (containerized) or Redis (scaled deployment)
-- **Metrics Storage**: Time-series database for performance metrics
+- Retrieval and answer-quality evaluation against a labeled set
+- Cache expiry and invalidation on re-ingest
+- Authentication
+- Support for PDF and other document formats

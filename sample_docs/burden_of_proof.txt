@@ -1,0 +1,13 @@
+Burden of proof in civil and criminal cases
+
+The burden of proof is the level of certainty a party must reach to win. It differs sharply between civil and criminal cases in the United States.
+
+In a criminal case the prosecution must prove every element of the offense beyond a reasonable doubt. This is the highest standard in the legal system. It does not require absolute certainty, but the evidence must leave jurors firmly convinced of the defendant's guilt. If a juror has a real doubt based on reason and the evidence, or the lack of evidence, the verdict must be not guilty. The defendant is presumed innocent and does not have to prove anything.
+
+In most civil cases the plaintiff must prove the claim by a preponderance of the evidence. That means the claim is more likely true than not. The standard is often described as tipping the scales slightly in the plaintiff's favor.
+
+Some civil matters use an intermediate standard called clear and convincing evidence. It applies, for example, to claims of fraud in many states and to proceedings that end parental rights. The evidence must show the claim is highly probable.
+
+A criminal case is brought by the government and can lead to imprisonment. A civil case is usually brought by a private party seeking money or a court order. Because the stakes differ, the same conduct can produce an acquittal in a criminal trial and liability in a civil one.
+
+This summary is a simplified teaching example written for this repository. It is not legal advice.

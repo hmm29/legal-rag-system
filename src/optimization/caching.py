@@ -1,46 +1,37 @@
-# caching.py
+"""On-disk cache of answers, keyed by the normalized question."""
 import hashlib
-import pickle
-import os
+import json
+from pathlib import Path
+
 
 class ResultCache:
-    def __init__(self, cache_dir="./cache"):
-        os.makedirs(cache_dir, exist_ok=True)
-        self.cache_dir = cache_dir
-    
-    def get_cache_key(self, query):
-        return hashlib.md5(query.encode()).hexdigest()
-    
-    def get_cache_path(self, key):
-        return os.path.join(self.cache_dir, f"{key}.pkl")
-    
-    def get(self, query):
-        key = self.get_cache_key(query)
-        path = self.get_cache_path(key)
-        
-        if os.path.exists(path):
-            with open(path, 'rb') as f:
-                return pickle.load(f)
-        return None
-    
-    def set(self, query, result):
-        key = self.get_cache_key(query)
-        path = self.get_cache_path(key)
-        
-        with open(path, 'wb') as f:
-            pickle.dump(result, f)
+    def __init__(self, cache_dir: str = "./cache"):
+        self.cache_dir = Path(cache_dir)
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
 
-# Initialize cache
-result_cache = ResultCache()
+    @staticmethod
+    def key(question: str) -> str:
+        normalized = " ".join(question.lower().split())
+        return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
-def cached_query(question):
-    """Get result from cache or query the RAG system"""
-    cached_result = result_cache.get(question)
-    if cached_result:
-        print("Cache hit!")
-        return cached_result
-    
-    print("Cache miss. Querying RAG system...")
-    result = qa(question)
-    result_cache.set(question, result)
-    return result
+    def _path(self, question: str) -> Path:
+        return self.cache_dir / f"{self.key(question)}.json"
+
+    def get(self, question: str) -> dict | None:
+        path = self._path(question)
+        if not path.exists():
+            return None
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return None
+
+    def set(self, question: str, result: dict) -> None:
+        self._path(question).write_text(json.dumps(result), encoding="utf-8")
+
+    def clear(self) -> int:
+        removed = 0
+        for path in self.cache_dir.glob("*.json"):
+            path.unlink()
+            removed += 1
+        return removed
