@@ -4,7 +4,7 @@
 
 A small retrieval-augmented generation (RAG) service for legal research questions. You ask a question over HTTP; it retrieves the most relevant passages from a Pinecone index, asks an OpenAI model to answer using only those passages, and returns the answer with its sources.
 
-I built it after working at Atrium, a legal-tech startup in San Francisco, where finding the right precedent quickly was most of the job. It is a reference implementation and a learning project, not a deployed product.
+I built it after working at Atrium, a legal-tech startup in San Francisco. It is a reference implementation and a learning project, not a deployed product.
 
 ## What it does
 
